@@ -1,0 +1,6 @@
+# Ignore node modules
+node_modules/
+# Ignore json files
+*.json
+# Ignore fetch script
+fetchInput.js
