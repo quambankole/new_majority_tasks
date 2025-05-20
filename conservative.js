@@ -7,7 +7,7 @@ const fs = require('fs');
     await page.setUserAgent('Mozilla/5.0 (compatible; NewMajorityBot/1.0; +https://vote.newmajority.ca; contact: hello@newmajority.ca)');
     
     let retries = 0;
-    while (retries < 5) {
+    while (retries < 3) {
         try {
             await page.goto('https://www.conservative.ca/candidates/', { waitUntil: 'networkidle2' });
             break;
