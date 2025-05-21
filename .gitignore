@@ -7,4 +7,6 @@ fetchInput.js
 
 .env
 
-.zip
+*.zip
+
+updated-candidates.json.zip
