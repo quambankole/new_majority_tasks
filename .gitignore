@@ -6,3 +6,5 @@ node_modules/
 fetchInput.js
 
 .env
+
+.zip
