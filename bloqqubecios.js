@@ -9,7 +9,7 @@ const fs = require('fs');
     const page = await browser.newPage();
     await page.setUserAgent('Mozilla/5.0 (compatible; NewMajorityBot/1.0; +https://vote.newmajority.ca; contact: hello@newmajority.ca)');
 
-    await page.goto('https://www.animalprotectionparty.ca/candidates/', { waitUntil: 'networkidle2' });
+    await page.goto('https://www.blocquebecois.org/candidates-et-candidats/', { waitUntil: 'networkidle2' });
 
     async function scrapeCandidates(page) {
         const allCandidates = [];
@@ -58,7 +58,7 @@ const fs = require('fs');
 
     const candidates = await scrapeCandidates(page);
     fs.writeFileSync('candidates-blocquebecois.json', JSON.stringify(candidates, null, 2), 'utf-8');
-    console.log('Candidate data saved to candidates-blocquebecois.json');
+    console.log('Candidate data saved to candidates-blocquebecois2.json');
 
 	await browser.close(); 
 })();

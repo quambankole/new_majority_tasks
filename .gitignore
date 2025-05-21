@@ -4,3 +4,5 @@ node_modules/
 *.json
 # Ignore fetch script
 fetchInput.js
+
+.env

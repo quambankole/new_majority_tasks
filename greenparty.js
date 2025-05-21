@@ -1,82 +1,56 @@
-    const puppeteer = require('puppeteer');
-    const fs = require('fs');
+import fs from 'fs';
+import PartyScraper from '../core/PartyScraper.js';
+import { matchToVoteMate } from '../core/utils.js';
 
-    (async () => {
-    const browser = await puppeteer.launch({ headless: true });
-    const page = await browser.newPage();
-    await page.setUserAgent('Mozilla/5.0 (compatible; NewMajorityBot/1.0; +https://vote.newmajority.ca; contact: hello@newmajority.ca)');
+class GreenPartyScraper extends PartyScraper {
+  constructor() {
+    super('https://www.greenparty.ca/en/candidates', 'greenparty');
+  }
 
-    await page.goto('https://www.greenparty.ca/en/candidates', { waitUntil: 'networkidle2' });
+  async scrapeCandidatesFromPage(page) {
+    return await page.evaluate(() => {
+      return Array.from(document.querySelectorAll('article.gpc-post-card')).map(card => ({
+        name: card.querySelector('.gpc-post-card-heading a')?.innerText.trim() || null,
+        email_source: card.querySelector('.gpc-post-card-heading a')?.href || null,
+        riding: card.querySelector('.gpc-post-card-location')?.innerText.trim() || null,
+      }));
+    });
+  }
 
-    // Scroll to bottom until all candidates are loaded
-    async function autoScroll(page) {
-        await page.evaluate(async () => {
-        await new Promise((resolve) => {
-            let totalHeight = 0;
-            const distance = 300;
-            const timer = setInterval(() => {
-            const scrollHeight = document.body.scrollHeight;
-            window.scrollBy(0, distance);
-            totalHeight += distance;
+  async enrichCandidate(page, candidate) {
+    if (!candidate.email_source) return candidate;
 
-            if (totalHeight >= scrollHeight) {
-                clearInterval(timer);
-                resolve();
-            }
-            }, 400);
-        });
-        });
+    try {
+      console.log(`Visiting: ${candidate.email_source}`);
+      await page.goto(candidate.email_source, { waitUntil: 'networkidle2' });
+
+      const email = await page.evaluate(() => {
+        const mailLink = document.querySelector('a[href^="mailto:"]');
+        return mailLink ? mailLink.href.replace('mailto:', '').trim() : null;
+      });
+
+      candidate.email = email;
+    } catch (err) {
+      console.error(`Failed to fetch details for ${candidate.name}:`, err.message);
+      candidate.email = null;
     }
 
-    await autoScroll(page);
+    await new Promise(resolve => setTimeout(resolve, 500));
+    return candidate;
+  }
 
-    async function scrapeCandidates(page) {
-        const candidateCards = await page.evaluate(() => 
-        {
-            // Select all candidate cards on the page=
-            return Array.from(document.querySelectorAll('article.gpc-post-card')).map(card => ({
-                name: card.querySelector('.gpc-post-card-heading a')?.innerText.trim() || null,
-                email_source: card.querySelector('.gpc-post-card-heading a')?.href || null,
-                riding: card.querySelector('.gpc-post-card-location')?.innerText.trim() || null,
-                }));
-        });
+  filterCandidate(candidate) {
+    const ignored = ['greenteam@greenparty.ca', 'equipevert@partivert.ca'];
+    return !ignored.includes(candidate.email);
+  }
+}
 
-        const allCandidates = [];
+const scraper = new GreenPartyScraper();
+const candidates = await scraper.scrape();
 
-        for (const candidate of candidateCards) {
-        if (candidate.email_source) {
-            try {
-            console.log(`Visiting: ${candidate.email_source}`);
-                await page.goto(candidate.email_source, { waitUntil: 'networkidle2' });
+fs.writeFileSync('candidates-greenparty.json', JSON.stringify(candidates, null, 2));
+console.log(`Saved ${candidates.length} filtered candidates.`);
 
-                const email = await page.evaluate(() => {
-                    const mailLink = document.querySelector('a[href^="mailto:"]');
-                    return mailLink ? mailLink.href.replace('mailto:', '').trim() : null;
-                });
-
-            candidate.email = email;
-            } catch (err) {
-            console.error(`Failed to fetch details for ${candidate.name}:`, err.message);
-            candidate.email = null;
-            }
-
-            await new Promise(resolve => setTimeout(resolve, 500));
-        }
-
-        allCandidates.push(candidate);
-        }
-
-        return allCandidates;
-    }
-
-    const candidates = await scrapeCandidates(page);
-    fs.writeFileSync('candidates-greenparty.json', JSON.stringify(candidates, (key, value) => {
-        if ( key === 'email' && value === 'greenteam@greenparty.ca' || key === 'email' && value === 'equipevert@partivert.ca') {
-        return null;
-        }
-        return value;
-    }, 2), 'utf-8');
-    console.log('Candidate data saved to candidates-greenparty.json');
-
-    await browser.close();
-    })();
+const matched = matchToVoteMate(candidates, 'candidate_emails_14.json');
+fs.writeFileSync('matched_greenparty_candidates.json', JSON.stringify(matched, null, 2));
+console.log('Saved matched candidate data.');
